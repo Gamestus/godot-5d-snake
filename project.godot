@@ -9,19 +9,19 @@
 config_version=4
 
 _global_script_classes=[ {
-"base": "Reference",
+"base": "ColorRect",
 "class": "Field",
 "language": "GDScript",
 "path": "res://scenes/main/Field.gd"
 }, {
 "base": "Node2D",
-"class": "Snake",
+"class": "Main",
 "language": "GDScript",
 "path": "res://scenes/main/Main.gd"
 } ]
 _global_script_class_icons={
 "Field": "",
-"Snake": ""
+"Main": ""
 }
 
 [application]

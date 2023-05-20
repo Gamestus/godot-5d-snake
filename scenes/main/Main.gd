@@ -1,17 +1,29 @@
-class_name Snake
+class_name Main
 extends Node2D
 
 var field = preload("res://scenes/main/Field.tscn")
 onready var map: Node2D = $Map
 onready var camera_2d: Camera2D = $Camera2D
 
+# Still depends on field_dict
+const MAX_DIMENSION_FIELD = 4
+const APOCALYPSE_FIELD = 100
+const FIELD_OFFSET = Vector2(5, 5)
 
+const MIN_TIME_SCALE = 0.1
+const DELTA_TIME_SCALE = 0.15
+const MAX_TIME_SCALE = 2.1
+
+# Snake can move in 17 directions, so
+# direction_additional is essential
+# "_a" (additional) suffix in variables 
+# means usage of other dimensions
 var direction_additional = Vector2.ZERO
 var direction = Vector2.RIGHT
 var last_direction = direction
 var is_making_longer = false
 var score = 0
-var time_param = 0.0
+var shader_time_param = 0.0
 var time_scale = 0.0
 var is_end_of_time = false
 
@@ -22,10 +34,10 @@ var snake_array = [
 ]
 
 enum Cell{
-	nothing,
-	apple,
-	body,
-	head,
+	NOTHING,
+	APPLE,
+	BODY,
+	HEAD,
 }
 
 var field_dict = {
@@ -43,8 +55,8 @@ var field_dict = {
 var head_on_field: Field
 
 func _process(delta: float) -> void:
-	time_param += 0.01 * time_scale
-	$Camera2D/DarkMatter.material.set_shader_param("time", time_param) 
+	shader_time_param += 0.01 * time_scale
+	$Camera2D/DarkMatter.material.set_shader_param("time", shader_time_param) 
 
 
 
@@ -53,9 +65,9 @@ func _ready() -> void:
 	head_on_field = field.instance()
 	map.add_child(head_on_field)
 	field_dict[0].append(head_on_field)
-	head_on_field.rect_position = Vector2(84.0/2, 55.0/2)
+	head_on_field.rect_position = Field.FIELD_SIZE / 2
 	head_on_field.init_game_start()
-	camera_2d.tween_to(head_on_field.rect_position + Vector2(84.0/2, 55.0/2), true)
+	camera_2d.tween_to(head_on_field.rect_position + Field.FIELD_SIZE / 2, true)
 	
 	if TurboMode.turbo_mode:
 		$Ui/MarginContainer/VBoxContainer/HBoxContainer/StrangeLabel.visible = true
@@ -65,24 +77,24 @@ func make_turn() -> void:
 	var snake_pos = snake_array[0][0]
 	var snake_pos_a = snake_array[0][1]
 	head_on_field = field_dict[int(snake_pos_a.y)][snake_pos_a.x]
-	head_on_field.game_array[snake_pos.x][snake_pos.y] = Cell.body
+	head_on_field.game_array[snake_pos.x][snake_pos.y] = Cell.BODY
 	head_on_field.draw_screen(direction)
 	
 	if direction_additional.x < 0:
-		time_scale = - snake_pos_a.x / 100 * 4.0
+		time_scale = - snake_pos_a.x / APOCALYPSE_FIELD * 4.0
 	else:
-		time_scale = snake_pos_a.x / 100 * 4.0
+		time_scale = snake_pos_a.x / APOCALYPSE_FIELD * 4.0
 	
 	if direction_additional == Vector2.ZERO:
-		make_normal_move(snake_pos, snake_pos_a)
+		move_head(snake_pos, snake_pos_a)
 	else:
-		make_cooler_move(snake_pos, snake_pos_a)
+		move_head_a(snake_pos, snake_pos_a)
 	
 	$Music.volume_db = linear2db(clamp(float(50 - snake_pos_a.x) / 50, 0, 0.4))
 	$Music2.volume_db = linear2db(clamp(float(snake_pos_a.x) / 50, 0, 0.5 ))
 
 
-func make_cooler_move(snake_pos, snake_pos_a):
+func move_head_a(snake_pos, snake_pos_a):
 	$Camera2D.reveal()
 	is_end_of_time = true
 	snake_array.push_front(
@@ -96,24 +108,24 @@ func make_cooler_move(snake_pos, snake_pos_a):
 		return
 	
 	head_on_field = field_dict[int(snake_array[0][1].y)][snake_array[0][1].x]
-	head_on_field.game_array[snake_array[0][0].x][snake_array[0][0].y] = Cell.head
+	head_on_field.game_array[snake_array[0][0].x][snake_array[0][0].y] = Cell.HEAD
 	
 	if not is_making_longer:
 		var erase_cell = snake_array.pop_back()
 		var erase_field = field_dict[int(erase_cell[1].y)][erase_cell[1].x]
-		erase_field.game_array[erase_cell[0].x][erase_cell[0].y] = Cell.nothing
+		erase_field.game_array[erase_cell[0].x][erase_cell[0].y] = Cell.NOTHING
 		erase_field.draw_screen(direction)
 	is_making_longer = false
 	
 	head_on_field.draw_screen(direction)
 	last_direction = direction
-	camera_2d.tween_to(head_on_field.rect_position + Vector2(84.0/2, 55.0/2), false)
+	camera_2d.tween_to(head_on_field.rect_position + Field.FIELD_SIZE / 2, false)
 
 
-func make_normal_move(snake_pos, snake_pos_a):
+func move_head(snake_pos, snake_pos_a):
 	
 	if snake_pos_a.x < field_dict[int(snake_pos_a.y)].size() - 1:
-		make_super_cool_move(snake_pos, snake_pos_a)
+		move_head_from_past(snake_pos, snake_pos_a)
 		return
 	
 	
@@ -129,12 +141,12 @@ func make_normal_move(snake_pos, snake_pos_a):
 	var new_field = create_field(snake_pos_a.y)
 	
 	head_on_field = field_dict[int(snake_array[0][1].y)][snake_array[0][1].x]
-	head_on_field.game_array[snake_array[0][0].x][snake_array[0][0].y] = Cell.head
+	head_on_field.game_array[snake_array[0][0].x][snake_array[0][0].y] = Cell.HEAD
 	
 	if not is_making_longer:
 		var erase_cell = snake_array.pop_back()
 		var erase_field = new_field
-		erase_field.game_array[erase_cell[0].x][erase_cell[0].y] = Cell.nothing
+		erase_field.game_array[erase_cell[0].x][erase_cell[0].y] = Cell.NOTHING
 		erase_field.draw_screen(direction)
 	is_making_longer = false
 	
@@ -142,7 +154,7 @@ func make_normal_move(snake_pos, snake_pos_a):
 	last_direction = direction
 
 
-func make_super_cool_move(snake_pos, snake_pos_a):
+func move_head_from_past(snake_pos, snake_pos_a):
 	snake_array.push_front(
 			[
 				Vector2(snake_pos.x + direction.x, snake_pos.y + direction.y),
@@ -154,27 +166,27 @@ func make_super_cool_move(snake_pos, snake_pos_a):
 		return
 	
 	head_on_field = field_dict[int(snake_array[0][1].y)][snake_array[0][1].x]
-	head_on_field.game_array[snake_array[0][0].x][snake_array[0][0].y] = Cell.head
+	head_on_field.game_array[snake_array[0][0].x][snake_array[0][0].y] = Cell.HEAD
 	
 	if not is_making_longer:
 		var erase_cell = snake_array.pop_back()
 #		var erase_field = field_dict[int(snake_array[0][1].y)][erase_cell[1].x]
 		var erase_field = field_dict[int(erase_cell[1].y)][erase_cell[1].x]
-		erase_field.game_array[erase_cell[0].x][erase_cell[0].y] = Cell.nothing
+		erase_field.game_array[erase_cell[0].x][erase_cell[0].y] = Cell.NOTHING
 		erase_field.draw_screen(direction)
 	is_making_longer = false
 	
 	head_on_field.draw_screen(direction)
 	last_direction = direction
 	
-	camera_2d.tween_to(head_on_field.rect_position + Vector2(84.0/2, 55.0/2), true)
+	camera_2d.tween_to(head_on_field.rect_position + Field.FIELD_SIZE / 2, true)
 
 
 func create_field(new_y: int = 0, offset = Vector2(90 , 0)):
 	var new_field = field.instance()
 	new_field.game_array = head_on_field.game_array.duplicate()
 	new_field.turn = head_on_field.turn
-	if new_field.turn == 99:
+	if new_field.turn == APOCALYPSE_FIELD - 1:
 		$Ui/GameOver/Label.text = "R: restart\npass: 0133"
 		game_over()
 	
@@ -182,7 +194,7 @@ func create_field(new_y: int = 0, offset = Vector2(90 , 0)):
 	new_field.rect_position = head_on_field.rect_position + offset
 	field_dict[new_y].append(new_field)
 	map.add_child(new_field)
-	camera_2d.tween_to(new_field.rect_position + Vector2(84.0/2, 55.0/2), true)
+	camera_2d.tween_to(new_field.rect_position + Field.FIELD_SIZE / 2, true)
 	return new_field
 
 
@@ -190,12 +202,12 @@ func create_global_field(additional_pos):
 	var new_field = field.instance()
 	new_field.init_game_start(false)
 	new_field.turn = -1
-	new_field.rect_position = Vector2(84.0/2, 55.0/2) + Vector2(90 * additional_pos.x, 60 * additional_pos.y)
+	new_field.rect_position = Field.FIELD_SIZE / 2 + Vector2(90 * additional_pos.x, 60 * additional_pos.y)
 	
 	map.add_child(new_field)
 	
 	field_dict[int(additional_pos.y)][additional_pos.x] = new_field
-	camera_2d.tween_to(new_field.rect_position + Vector2(84.0/2, 55.0/2))
+	camera_2d.tween_to(new_field.rect_position + Field.FIELD_SIZE / 2)
 	return new_field
 
 
@@ -203,7 +215,7 @@ func _input(event: InputEvent) -> void:
 	if not TurboMode.turbo_mode and event.is_action_pressed("turbo"):
 		TurboMode.turbo_mode = true
 		$Ui/MarginContainer/VBoxContainer/HBoxContainer/StrangeLabel.visible = true
-		$AppleSound.play()
+		$APPLESound.play()
 	
 	var new_dir = Vector2.ZERO
 	var new_dir_a = Vector2.ZERO
@@ -233,14 +245,20 @@ func _input(event: InputEvent) -> void:
 	$Ui/MarginContainer/VBoxContainer/HBoxContainer/StrangeLabel.text = str(direction) + " " + str(direction_additional)
 	
 	if event.is_action_pressed("speedup"):
-		$StepTimer.wait_time = clamp($StepTimer.wait_time - 0.15, 0.1, 2.0)
+		$StepTimer.wait_time = clamp($StepTimer.wait_time - DELTA_TIME_SCALE, 
+				MIN_TIME_SCALE, 
+				MAX_TIME_SCALE
+		)
 	elif event.is_action_pressed("speeddown"):
-		$StepTimer.wait_time = clamp($StepTimer.wait_time + 0.15, 0.1, 2.0)
+		$StepTimer.wait_time = clamp($StepTimer.wait_time + DELTA_TIME_SCALE, 
+				MIN_TIME_SCALE, 
+				MAX_TIME_SCALE
+		)
 
 
 func is_field_exists(move_to_a):
-	return move_to_a.x >= 0 and move_to_a.x < 100 and\
-			move_to_a.y >= -4 and move_to_a.y <= 4
+	return move_to_a.x >= 0 and move_to_a.x < APOCALYPSE_FIELD and\
+			move_to_a.y >= -MAX_DIMENSION_FIELD and move_to_a.y <= MAX_DIMENSION_FIELD
 
 
 func try_move(move_to, move_to_a) -> bool:
@@ -265,13 +283,13 @@ func try_move(move_to, move_to_a) -> bool:
 		return false
 	
 	match field.game_array[move_to.x][move_to.y]:
-		Cell.apple:
+		Cell.APPLE:
 			score += 1
 			$Ui/MarginContainer/VBoxContainer/HBoxContainer/Score.text = "%04d" % score
 			field.create_apple()
 			$AppleSound.play()
 			is_making_longer = true
-		Cell.body, Cell.head:
+		Cell.BODY, Cell.HEAD:
 			if not is_dim_created:
 				game_over()
 				return false

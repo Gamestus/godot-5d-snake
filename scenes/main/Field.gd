@@ -4,6 +4,8 @@ extends ColorRect
 const COLUMNS = 16
 const ROWS = 9
 
+const FIELD_SIZE = Vector2(84, 57) 
+
 onready var tile_map: TileMap = $MarginContainer/VBoxContainer/Panel/TileMap
 onready var turn_label: Label = $MarginContainer/VBoxContainer/HBoxContainer/Turn
 
