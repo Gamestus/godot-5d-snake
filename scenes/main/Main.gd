@@ -7,12 +7,13 @@ onready var camera_2d: Camera2D = $Camera2D
 # Still depends on field_dict
 const MAX_DIMENSION_FIELD = 4
 const APOCALYPSE_FIELD = 100
-const FIELD_OFFSET = Vector2(5, 5)
+const FIELD_OFFSET = Vector2(6, 6)
 
 const MIN_TIME_SCALE = 0.1
 const DELTA_TIME_SCALE = 0.15
 const MAX_TIME_SCALE = 2.1
 
+const IS_CAM_REVEALED = true
 
 enum Cell{
 	NOTHING,
@@ -42,30 +43,19 @@ var snake_array = [
 		[Vector2(0, 5), Vector2(0, 0)]
 ]
 
-var field_dict = {
-	-4: [],
-	-3: [],
-	-2: [],
-	-1: [],
-	0: [],
-	1: [],
-	2: [],
-	3: [],
-	4: []
+var field_dict: Dictionary = {
 }
 
 
 func _ready() -> void:
 	randomize()
-	head_on_field = field.instance()
-	map.add_child(head_on_field)
-	field_dict[0].append(head_on_field)
-	head_on_field.rect_position = Field.FIELD_SIZE / 2
+	head_on_field = get_or_create_field(Vector2.ZERO)
 	head_on_field.init_game_start()
-	camera_2d.tween_to(head_on_field.rect_position + Field.FIELD_SIZE / 2, true)
 	
 	if TurboMode.turbo_mode:
 		$Ui/MarginContainer/VBoxContainer/HBoxContainer/StrangeLabel.visible = true
+	if IS_CAM_REVEALED:
+		$Camera2D.reveal()
 
 
 func _process(delta: float) -> void:
@@ -164,7 +154,7 @@ func move_head(snake_pos, snake_pos_a):
 	
 	if not try_move(snake_array[0][0], snake_pos_a):
 		return
-	var new_field = create_field(snake_pos_a.y)
+	var new_field = get_or_create_field(snake_array[0][1], head_on_field)
 	
 	head_on_field = field_dict[int(snake_array[0][1].y)][snake_array[0][1].x]
 	head_on_field.game_array[snake_array[0][0].x][snake_array[0][0].y] = Cell.HEAD
@@ -193,7 +183,7 @@ func move_head_a(snake_pos, snake_pos_a):
 	if not try_move(snake_array[0][0], snake_array[0][1]):
 		return
 	
-	head_on_field = field_dict[int(snake_array[0][1].y)][snake_array[0][1].x]
+	head_on_field = get_or_create_field(snake_array[0][1])
 	head_on_field.game_array[snake_array[0][0].x][snake_array[0][0].y] = Cell.HEAD
 	
 	if not is_making_longer:
@@ -235,34 +225,63 @@ func move_head_from_past(snake_pos, snake_pos_a):
 	
 	camera_2d.tween_to(head_on_field.rect_position + Field.FIELD_SIZE / 2, true)
 
+#
+#func create_field(new_y: int = 0, offset = Vector2(90 , 0)):
+#	var new_field = field.instance()
+#	new_field.game_array = head_on_field.game_array.duplicate()
+#	new_field.turn = head_on_field.turn
+#	if new_field.turn == APOCALYPSE_FIELD - 1:
+#		$Ui/GameOver/Label.text = "R: restart\npass: 0133"
+#		game_over()
+#
+#
+#	new_field.rect_position = head_on_field.rect_position + offset
+#	field_dict[new_y].append(new_field)
+#	map.add_child(new_field)
+#	camera_2d.tween_to(new_field.rect_position + Field.FIELD_SIZE / 2, true)
+#	return new_field
 
-func create_field(new_y: int = 0, offset = Vector2(90 , 0)):
+
+func get_or_create_field(additional_pos: Vector2, duplicate_field: Field = null) -> Field:
+	var dimension: int = additional_pos.y
+	if not field_dict.has(dimension):
+		field_dict[dimension] = []
+	
+	if field_dict[dimension].size() <= additional_pos.x or \
+			field_dict[dimension][additional_pos.x] == null:
+		return create_field_at(additional_pos, duplicate_field)
+	
+	return field_dict[dimension][additional_pos.x]
+
+
+func create_field_at(additional_pos: Vector2, duplicate_field: Field = null) -> Field:
 	var new_field = field.instance()
-	new_field.game_array = head_on_field.game_array.duplicate()
-	new_field.turn = head_on_field.turn
-	if new_field.turn == APOCALYPSE_FIELD - 1:
-		$Ui/GameOver/Label.text = "R: restart\npass: 0133"
-		game_over()
+	new_field.init_game_start(false)
+	new_field.turn = additional_pos.x
+	new_field.rect_position = (Field.FIELD_SIZE + FIELD_OFFSET) * additional_pos
 	
-	
-	new_field.rect_position = head_on_field.rect_position + offset
-	field_dict[new_y].append(new_field)
+	if duplicate_field:
+		new_field.game_array = duplicate_field.game_array.duplicate()
+	add_field_to_dict(additional_pos, new_field)
 	map.add_child(new_field)
 	camera_2d.tween_to(new_field.rect_position + Field.FIELD_SIZE / 2, true)
 	return new_field
 
 
-func create_global_field(additional_pos):
-	var new_field = field.instance()
-	new_field.init_game_start(false)
-	new_field.turn = -1
-	new_field.rect_position = Field.FIELD_SIZE / 2 + Vector2(90 * additional_pos.x, 60 * additional_pos.y)
+func add_field_to_dict(additional_pos: Vector2, field: Field):
+	var dimension: int = additional_pos.y
 	
-	map.add_child(new_field)
+	var dimension_size = field_dict[dimension].size()
 	
-	field_dict[int(additional_pos.y)][additional_pos.x] = new_field
-	camera_2d.tween_to(new_field.rect_position + Field.FIELD_SIZE / 2)
-	return new_field
+	if dimension_size == additional_pos.x:
+		field_dict[dimension].append(field)
+	
+	elif dimension_size < additional_pos.x:
+		var needed_to_add = 1 + additional_pos.x - dimension_size
+		for i in needed_to_add - 1:
+			field_dict[dimension].append(null)
+	else:
+		field_dict[dimension][additional_pos.x] = field
 
 
 func is_field_exists(move_to_a):
@@ -270,22 +289,14 @@ func is_field_exists(move_to_a):
 			move_to_a.y >= -MAX_DIMENSION_FIELD and move_to_a.y <= MAX_DIMENSION_FIELD
 
 
-func try_move(move_to, move_to_a) -> bool:
+func try_move(move_to, move_to_a, duplicate_field: Field = null) -> bool:
 	var is_dim_created = false
+	
 	if not is_field_exists(move_to_a):
 		game_over()
 		return false
 	
-	#if array element not exists on dim
-	if field_dict[int(move_to_a.y)].size() <= move_to_a.x:
-		create_field_at_dimension(move_to_a)
-		is_dim_created = true
-	
-	var field = field_dict[int(move_to_a.y)][move_to_a.x]
-	
-	if field == null:
-		field = create_global_field(move_to_a)
-	
+	var field = get_or_create_field(move_to_a, duplicate_field)
 	
 	if not field.is_cell_exists(move_to):
 		game_over()
@@ -299,20 +310,11 @@ func try_move(move_to, move_to_a) -> bool:
 			$AppleSound.play()
 			is_making_longer = true
 		Cell.BODY, Cell.HEAD:
+			pass
 			if not is_dim_created:
 				game_over()
 				return false
 	return true
-
-
-func create_field_at_dimension(move_to_a: Vector2):
-	var new_y = move_to_a.y
-	var needed_to_add = 1 + move_to_a.x - field_dict[int(new_y)].size()
-	
-	for i in needed_to_add - 1:
-		field_dict[int(new_y)].append(null)
-	create_field(new_y, Vector2(0, 60 * direction_additional.y))
-
 
 func game_over() -> void:
 	$GameOverSound.play()
