@@ -355,6 +355,7 @@ text = "R: restart"
 [node name="Map" type="Node2D" parent="."]
 
 [node name="StepTimer" type="Timer" parent="."]
+wait_time = 0.8
 autostart = true
 
 [node name="AppleSound" type="AudioStreamPlayer" parent="."]
