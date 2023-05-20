@@ -24,6 +24,9 @@ enum Cell{
 
 var field = preload("res://scenes/main/Field.tscn")
 
+const SHADER_SPEED = 0.015
+var shader_time_param = 0.0
+var shader_time_scale = 0.0
 # Snake can move in 17 directions, so
 # direction_additional is essential
 # "_a" (additional) suffix in variables 
@@ -33,8 +36,6 @@ var direction = Vector2.RIGHT
 var last_direction = direction
 var is_making_longer = false
 var score = 0
-var shader_time_param = 0.0
-var time_scale = 0.0
 var is_end_of_time = false
 var head_on_field: Field
 
@@ -59,7 +60,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	shader_time_param += 0.01 * time_scale
+	shader_time_param += SHADER_SPEED * shader_time_scale
 	$Camera2D/DarkMatter.material.set_shader_param("time", shader_time_param) 
 
 
@@ -125,30 +126,36 @@ func make_turn() -> void:
 	head_on_field.draw_screen(direction)
 	
 	if direction_additional.x < 0:
-		time_scale = - snake_pos_a.x / APOCALYPSE_FIELD * 4.0
+		shader_time_scale = - snake_pos_a.x / APOCALYPSE_FIELD * 4.0
 	else:
-		time_scale = snake_pos_a.x / APOCALYPSE_FIELD * 4.0
+		shader_time_scale = snake_pos_a.x / APOCALYPSE_FIELD * 4.0
 	
 	if direction_additional == Vector2.ZERO:
-		move_head(snake_pos, snake_pos_a)
+		move_head()
 	else:
-		move_head_a(snake_pos, snake_pos_a)
+		move_head_a()
 	
 	$Music.volume_db = linear2db(clamp(float(50 - snake_pos_a.x) / 50, 0, 0.4))
 	$Music2.volume_db = linear2db(clamp(float(snake_pos_a.x) / 50, 0, 0.5 ))
 
 
-func move_head(snake_pos, snake_pos_a):
+func move_head():
+	var snake_pos = snake_array[0][0]
+	var snake_pos_a = snake_array[0][1]
 	
 	if snake_pos_a.x < field_dict[int(snake_pos_a.y)].size() - 1:
-		move_head_from_past(snake_pos, snake_pos_a)
+		# if call move_head_a with same direction as before
+		# snake moves in same field only
+		# looks cool ;)
+		direction_additional.x = 1.0
+		move_head_a()
 		return
 	
 	
 	snake_array.push_front(
 			[
 				Vector2(snake_pos.x + direction.x, snake_pos.y + direction.y),
-				Vector2(snake_pos_a.x + 1, snake_pos_a.y+ direction_additional.y),
+				Vector2(snake_pos_a.x + 1, snake_pos_a.y + direction_additional.y),
 			]
 	)
 	
@@ -170,7 +177,9 @@ func move_head(snake_pos, snake_pos_a):
 	last_direction = direction
 
 
-func move_head_a(snake_pos, snake_pos_a):
+func move_head_a():
+	var snake_pos = snake_array[0][0]
+	var snake_pos_a = snake_array[0][1]
 	$Camera2D.reveal()
 	is_end_of_time = true
 	snake_array.push_front(
@@ -196,50 +205,6 @@ func move_head_a(snake_pos, snake_pos_a):
 	head_on_field.draw_screen(direction)
 	last_direction = direction
 	camera_2d.tween_to(head_on_field.rect_position + Field.FIELD_SIZE / 2, false)
-
-
-func move_head_from_past(snake_pos, snake_pos_a):
-	snake_array.push_front(
-			[
-				Vector2(snake_pos.x + direction.x, snake_pos.y + direction.y),
-				Vector2(snake_pos_a.x + 1, snake_pos_a.y + direction_additional.y),
-			]
-	)
-	
-	if not try_move(snake_array[0][0], snake_array[0][1]):
-		return
-	
-	head_on_field = field_dict[int(snake_array[0][1].y)][snake_array[0][1].x]
-	head_on_field.game_array[snake_array[0][0].x][snake_array[0][0].y] = Cell.HEAD
-	
-	if not is_making_longer:
-		var erase_cell = snake_array.pop_back()
-#		var erase_field = field_dict[int(snake_array[0][1].y)][erase_cell[1].x]
-		var erase_field = field_dict[int(erase_cell[1].y)][erase_cell[1].x]
-		erase_field.game_array[erase_cell[0].x][erase_cell[0].y] = Cell.NOTHING
-		erase_field.draw_screen(direction)
-	is_making_longer = false
-	
-	head_on_field.draw_screen(direction)
-	last_direction = direction
-	
-	camera_2d.tween_to(head_on_field.rect_position + Field.FIELD_SIZE / 2, true)
-
-#
-#func create_field(new_y: int = 0, offset = Vector2(90 , 0)):
-#	var new_field = field.instance()
-#	new_field.game_array = head_on_field.game_array.duplicate()
-#	new_field.turn = head_on_field.turn
-#	if new_field.turn == APOCALYPSE_FIELD - 1:
-#		$Ui/GameOver/Label.text = "R: restart\npass: 0133"
-#		game_over()
-#
-#
-#	new_field.rect_position = head_on_field.rect_position + offset
-#	field_dict[new_y].append(new_field)
-#	map.add_child(new_field)
-#	camera_2d.tween_to(new_field.rect_position + Field.FIELD_SIZE / 2, true)
-#	return new_field
 
 
 func get_or_create_field(additional_pos: Vector2, duplicate_field: Field = null) -> Field:
@@ -284,7 +249,7 @@ func add_field_to_dict(additional_pos: Vector2, field: Field):
 		field_dict[dimension][additional_pos.x] = field
 
 
-func is_field_exists(move_to_a):
+func is_field_within_boundaries(move_to_a):
 	return move_to_a.x >= 0 and move_to_a.x < APOCALYPSE_FIELD and\
 			move_to_a.y >= -MAX_DIMENSION_FIELD and move_to_a.y <= MAX_DIMENSION_FIELD
 
@@ -292,13 +257,13 @@ func is_field_exists(move_to_a):
 func try_move(move_to, move_to_a, duplicate_field: Field = null) -> bool:
 	var is_dim_created = false
 	
-	if not is_field_exists(move_to_a):
+	if not is_field_within_boundaries(move_to_a):
 		game_over()
 		return false
 	
 	var field = get_or_create_field(move_to_a, duplicate_field)
 	
-	if not field.is_cell_exists(move_to):
+	if not field.is_cell_within_boundaries(move_to):
 		game_over()
 		return false
 	
@@ -315,6 +280,7 @@ func try_move(move_to, move_to_a, duplicate_field: Field = null) -> bool:
 				game_over()
 				return false
 	return true
+
 
 func game_over() -> void:
 	$GameOverSound.play()

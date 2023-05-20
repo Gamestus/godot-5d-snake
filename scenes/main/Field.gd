@@ -10,11 +10,12 @@ onready var tile_map: TileMap = $MarginContainer/VBoxContainer/Panel/TileMap
 onready var turn_label: Label = $MarginContainer/VBoxContainer/HBoxContainer/Turn
 
 enum Cell{
-	nothing,
-	apple,
-	body,
-	head,
+	NOTHING,
+	APPLE,
+	BODY,
+	HEAD,
 }
+
 
 var game_array: Array = []
 
@@ -43,7 +44,7 @@ func init_game_start(is_create_apple = true):
 
 
 
-func is_cell_exists(index : Vector2) -> bool:
+func is_cell_within_boundaries(index : Vector2) -> bool:
 	return index.x >= 0 and index.x < COLUMNS and\
 			index.y >= 0 and index.y < ROWS
 
@@ -54,7 +55,7 @@ func draw_screen(direction) -> void:
 	
 	for y in ROWS:
 		for x in COLUMNS:
-			if game_array[x][y] == Cell.head:
+			if game_array[x][y] == Cell.HEAD:
 				tile_map.set_cell(
 						x,
 						y,
@@ -72,7 +73,7 @@ func create_apple():
 	while true or counter < 200:
 		var spawn_position = Vector2(randi() % COLUMNS, randi() % ROWS)
 		counter += 1
-		if game_array[spawn_position.x][spawn_position.y] == Cell.nothing:
-			game_array[spawn_position.x][spawn_position.y] = Cell.apple
+		if game_array[spawn_position.x][spawn_position.y] == Cell.NOTHING:
+			game_array[spawn_position.x][spawn_position.y] = Cell.APPLE
 			return
 	printerr("Wow")
