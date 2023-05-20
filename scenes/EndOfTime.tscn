@@ -1,0 +1,244 @@
+[gd_scene load_steps=13 format=2]
+
+[ext_resource path="res://assets/audio/412412__alex_hears_things__sci-fi-growl-scream-f.wav" type="AudioStream" id=1]
+[ext_resource path="res://assets/audio/387486__cosmicembers__dark-wind.wav" type="AudioStream" id=2]
+[ext_resource path="res://scenes/EndOfTime.gd" type="Script" id=3]
+[ext_resource path="res://resources/snake.tres" type="Theme" id=4]
+[ext_resource path="res://assets/upheaval-pro.regular.ttf" type="DynamicFontData" id=5]
+
+[sub_resource type="Shader" id=1]
+code = "shader_type canvas_item;
+
+uniform sampler2D noiseTexture;
+uniform vec3 baseColorRGB = vec3(0.2, 0.1, 0.4);
+uniform float speed = 0.15;
+
+mat2 makem2(in float theta)
+{
+	float c = cos(theta);
+	float s = sin(theta);
+	vec2 part1 = vec2(c, -s);
+	vec2 part2 = vec2(s, c);
+	return mat2(part1, part2);
+}
+
+float noise(in vec2 x)
+{
+	return texture(noiseTexture, x * 0.01).x;
+}
+
+float fbm(in vec2 p)
+{
+	float z = 2.0;
+	float rz = 0.0;
+	vec2 bp = p;
+	for (float i = 1.0; i < 6.0; i++)
+	{
+		rz += abs((noise(p) - 0.5) * 2.0) / z;
+		z = z * 2.0;
+		p = p * 2.0;
+	}
+	return rz;
+}
+
+float dualfbm(in vec2 p)
+{
+	//get two rotated fbm calls and displace the domain
+	vec2 p2 = p * 0.7;
+	vec2 basis = vec2(fbm(p2 - (TIME * speed) * 1.6), fbm(p2 + (TIME * speed) * 1.7));
+	basis = (basis - 0.5) * 0.2;
+	p += basis;
+	
+	//coloring
+	return fbm(p * makem2((TIME * speed) * 0.2));
+}
+
+float circ(vec2 p) 
+{
+	float tau = 6.2831853;
+	float r = length(p);
+	r = 0.5 * log(r);
+	return abs(mod(r * 4.0, tau) - 3.14) * 3.0 + 0.2;
+}
+
+void fragment()
+{
+	//setup system
+	vec2 p = UV.xy / (1.0 / TEXTURE_PIXEL_SIZE).xy - 0.5;
+	p.x *= (1.0 / TEXTURE_PIXEL_SIZE).x / (1.0 / TEXTURE_PIXEL_SIZE).y;
+	p *= 4.0;
+	
+	float rz = dualfbm(p);
+	
+	//rings
+	p /= exp(mod((TIME * speed) * 10.0, 3.14159));
+	rz *= pow(abs((0.1 - circ(p))), 0.9);
+	
+	//final color
+	vec3 col = baseColorRGB / rz;
+	col = pow(abs(col), vec3(0.99));
+	COLOR = vec4(col, 1.0);
+}"
+
+[sub_resource type="OpenSimplexNoise" id=2]
+period = 2.3
+lacunarity = 0.66
+
+[sub_resource type="NoiseTexture" id=3]
+noise = SubResource( 2 )
+
+[sub_resource type="ShaderMaterial" id=4]
+shader = SubResource( 1 )
+shader_param/baseColorRGB = Vector3( 0.2, 0.1, 0.4 )
+shader_param/speed = 0.15
+shader_param/noiseTexture = SubResource( 3 )
+
+[sub_resource type="Animation" id=5]
+resource_name = "End"
+length = 4.0
+tracks/0/type = "bezier"
+tracks/0/path = NodePath(".:self_modulate:r")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0, 0, -0.25, 0, 0.25, 0, 1, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0, 1.9, 2.6 )
+}
+tracks/1/type = "bezier"
+tracks/1/path = NodePath(".:self_modulate:g")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0, 0, -0.25, 0, 0.25, 0, 1, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0, 1.9, 2.6 )
+}
+tracks/2/type = "bezier"
+tracks/2/path = NodePath(".:self_modulate:b")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0, 0, -0.25, 0, 0.25, 0, 1, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0, 1.9, 2.6 )
+}
+tracks/3/type = "bezier"
+tracks/3/path = NodePath(".:self_modulate:a")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/keys = {
+"points": PoolRealArray( 1, -0.25, 0, 0.25, 0, 1, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0, 2.6 )
+}
+tracks/4/type = "method"
+tracks/4/path = NodePath("DarkWind")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"values": [ {
+"args": [ 0.0 ],
+"method": "play"
+} ]
+}
+tracks/5/type = "method"
+tracks/5/path = NodePath("Scream")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"values": [ {
+"args": [ 0.0 ],
+"method": "play"
+} ]
+}
+
+[sub_resource type="Animation" id=6]
+length = 0.001
+tracks/0/type = "bezier"
+tracks/0/path = NodePath(".:self_modulate:r")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"points": PoolRealArray( 1, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0 )
+}
+tracks/1/type = "bezier"
+tracks/1/path = NodePath(".:self_modulate:g")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"points": PoolRealArray( 1, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0 )
+}
+tracks/2/type = "bezier"
+tracks/2/path = NodePath(".:self_modulate:b")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/keys = {
+"points": PoolRealArray( 1, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0 )
+}
+tracks/3/type = "bezier"
+tracks/3/path = NodePath(".:self_modulate:a")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0 )
+}
+
+[sub_resource type="DynamicFont" id=7]
+size = 36
+font_data = ExtResource( 5 )
+
+[node name="EndOfTime" type="ColorRect"]
+self_modulate = Color( 1, 1, 1, 0 )
+material = SubResource( 4 )
+margin_right = 40.0
+margin_bottom = 40.0
+rect_min_size = Vector2( 900, 900 )
+theme = ExtResource( 4 )
+script = ExtResource( 3 )
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+anims/End = SubResource( 5 )
+anims/RESET = SubResource( 6 )
+
+[node name="DarkWind" type="AudioStreamPlayer" parent="."]
+stream = ExtResource( 2 )
+
+[node name="Scream" type="AudioStreamPlayer" parent="."]
+stream = ExtResource( 1 )
+volume_db = -10.0
+
+[node name="Label" type="Label" parent="."]
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+margin_top = 251.0
+margin_bottom = 256.0
+custom_colors/font_color = Color( 1, 1, 1, 1 )
+custom_fonts/font = SubResource( 7 )
+text = "score: 12"
+align = 1

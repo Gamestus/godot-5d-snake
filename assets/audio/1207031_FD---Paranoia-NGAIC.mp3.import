@@ -1,0 +1,15 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+path="res://.import/1207031_FD---Paranoia-NGAIC.mp3-43e2277e79fb1039068965c9ba04131f.mp3str"
+
+[deps]
+
+source_file="res://assets/audio/1207031_FD---Paranoia-NGAIC.mp3"
+dest_files=[ "res://.import/1207031_FD---Paranoia-NGAIC.mp3-43e2277e79fb1039068965c9ba04131f.mp3str" ]
+
+[params]
+
+loop=true
+loop_offset=0
