@@ -13,7 +13,7 @@ const MIN_TIME_SCALE = 0.1
 const DELTA_TIME_SCALE = 0.15
 const MAX_TIME_SCALE = 2.1
 
-const IS_CAM_REVEALED = true
+const IS_CAM_REVEALED = false
 
 enum Cell{
 	NOTHING,
@@ -147,8 +147,7 @@ func move_head():
 		# if call move_head_a with same direction as before
 		# snake moves in same field only
 		# looks cool ;)
-		direction_additional.x = 1.0
-		move_head_a()
+		move_head_a(true)
 		return
 	
 	
@@ -177,22 +176,23 @@ func move_head():
 	last_direction = direction
 
 
-func move_head_a():
+func move_head_a(is_from_past = false):
 	var snake_pos = snake_array[0][0]
 	var snake_pos_a = snake_array[0][1]
 	$Camera2D.reveal()
 	is_end_of_time = true
+	var new_snake_dir_a = 1 if is_from_past else direction_additional.x
 	snake_array.push_front(
 			[
 				Vector2(snake_pos.x + direction.x, snake_pos.y + direction.y),
-				Vector2(snake_pos_a.x + direction_additional.x, snake_pos_a.y + direction_additional.y),
+				Vector2(snake_pos_a.x + new_snake_dir_a, snake_pos_a.y + direction_additional.y),
 			]
 	)
 	
-	if not try_move(snake_array[0][0], snake_array[0][1]):
+	if not try_move(snake_array[0][0], snake_array[0][1], head_on_field):
 		return
 	
-	head_on_field = get_or_create_field(snake_array[0][1])
+	head_on_field = get_or_create_field(snake_array[0][1], head_on_field)
 	head_on_field.game_array[snake_array[0][0].x][snake_array[0][0].y] = Cell.HEAD
 	
 	if not is_making_longer:
@@ -204,7 +204,7 @@ func move_head_a():
 	
 	head_on_field.draw_screen(direction)
 	last_direction = direction
-	camera_2d.tween_to(head_on_field.rect_position + Field.FIELD_SIZE / 2, false)
+	camera_2d.tween_to(head_on_field.rect_position + Field.FIELD_SIZE / 2, is_from_past)
 
 
 func get_or_create_field(additional_pos: Vector2, duplicate_field: Field = null) -> Field:
@@ -224,7 +224,7 @@ func create_field_at(additional_pos: Vector2, duplicate_field: Field = null) -> 
 	new_field.init_game_start(false)
 	new_field.turn = additional_pos.x
 	new_field.rect_position = (Field.FIELD_SIZE + FIELD_OFFSET) * additional_pos
-	
+	assert(duplicate_field != null or additional_pos == Vector2(0,0))
 	if duplicate_field:
 		new_field.game_array = duplicate_field.game_array.duplicate()
 	add_field_to_dict(additional_pos, new_field)
@@ -275,7 +275,7 @@ func try_move(move_to, move_to_a, duplicate_field: Field = null) -> bool:
 			$AppleSound.play()
 			is_making_longer = true
 		Cell.BODY, Cell.HEAD:
-			pass
+			return true
 			if not is_dim_created:
 				game_over()
 				return false
